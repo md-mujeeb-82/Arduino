@@ -16,7 +16,7 @@ ESP8266WebServer server(80);
 #define DEFAULT_FREQUENCY 13.0
 long lastTime = -1;
 bool isPolirityForward = true;
-int halfCycleDelay = ((1/DEFAULT_FREQUENCY) * 1000)/2;
+long halfCycleDelay = ((1/DEFAULT_FREQUENCY) * 1000 * 1000)/2;
 
 int PIN_1 = 2;
 int PIN_2 = 3;
@@ -56,7 +56,7 @@ void handleRoot() {
 void handleSubmit() {
   String receivedValue = server.arg("frequency");
   float freq = receivedValue.toFloat();
-  if(freq <= 0 || freq > 500) {
+  if(freq <= 0 || freq > 5000) {
     server.send(200, "text/plain", "Frequency " + receivedValue + " is Invalid. Please enter a value greater than 0 and less than or equal to 100.");
     return;
   }
@@ -80,7 +80,7 @@ void handleNotFound() {
 }
 
 void saveData() {
-  halfCycleDelay = ((1/data.frequency) * 1000)/2;
+  halfCycleDelay = ((1/data.frequency) * 1000 * 1000)/2;
   EEPROM.put(0, data);
   EEPROM.commit();
 }
@@ -98,7 +98,7 @@ void setup() {
     saveData();
   }
 
-  halfCycleDelay = ((1/data.frequency) * 1000)/2;
+  halfCycleDelay = ((1/data.frequency) * 1000 * 1000)/2;
 
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(PIN_1, OUTPUT);
@@ -175,7 +175,7 @@ void setup() {
   digitalWrite(PIN_1, LOW);
   digitalWrite(PIN_2, HIGH);
 
-  lastTime = millis();
+  lastTime = micros();
 }
 
 // the loop function runs over and over again forever
@@ -184,7 +184,7 @@ void loop() {
   server.handleClient();
   MDNS.update();
 
-  long currentTime = millis();
+  long currentTime = micros();
 
   if(currentTime - lastTime >= halfCycleDelay) {
 
