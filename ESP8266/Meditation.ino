@@ -56,7 +56,7 @@ void handleRoot() {
 void handleSubmit() {
   String receivedValue = server.arg("frequency");
   float freq = receivedValue.toFloat();
-  if(freq <= 0 || freq > 100) {
+  if(freq <= 0 || freq > 500) {
     server.send(200, "text/plain", "Frequency " + receivedValue + " is Invalid. Please enter a value greater than 0 and less than or equal to 100.");
     return;
   }
