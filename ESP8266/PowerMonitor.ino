@@ -8,18 +8,18 @@
 #include <WiFiClientSecure.h>
 #include <ArduinoOTA.h>
 
-#define DEFAULT_MARKER 7867
-#define DEFAULT_RECIPIENT_EMAILS "mohammad.mujeeb@gmail.com"
+#define DEFAULT_MARKER 78670
+#define DEFAULT_MOBILES String("919880506766")
 #define SMS_API_KEY "V4cDXFYmKEdE"
 // #define "marghoob.hasan@gmail.com"
+#define DATA_PIN 2
 
 ESP8266WebServer server(80);
-
 
 // EEPROM Operations
 struct Data {
   int marker;
-  String recipientEmails;
+  char recipientMobiles[100];
 };
 
 Data data;
@@ -27,10 +27,9 @@ Data data;
 #define WIFI_SSID "Ahmads"
 #define WIFI_PASSWORD "03312018"
 
-long previousTime = -1;
-int counter = 0;
-int highestDifference = -1;
 bool isPowerGone = false;
+bool wasValue0 = false;
+long lastTime = -1;
 
 void handleRoot() {
   String html = R"=====(
@@ -45,25 +44,25 @@ void handleRoot() {
         <h1>Power Monitor</h1>
         <h4>by Mujeeb Mohammad (+91 9880506766 / mohammad.mujeeb@gmail.com)</h4>
         <form action="/submit" method="GET">
-          Recipient EMails: <input type="text" name="recipientEmails" value="%value%">
+          Recipient Mobile Numbers: <input type="text" name="recipientMobiles" value="%value%">
           <input type="submit" value="Change">
         </form>
       </center>
     </body>
     </html>
   )=====";
-  html.replace("%value%", String(data.recipientEmails));
+  html.replace("%value%", String(data.recipientMobiles));
   server.send(200, "text/html", html);
 }
 
 void handleSubmit() {
-  String receivedValue = server.arg("recipientEmails");
+  String receivedValue = server.arg("recipientMobiles");
   // if(freq <= 0 || freq > 5000) {
   //   server.send(200, "text/plain", "Frequency " + receivedValue + " is Invalid. Please enter a value greater than 0 and less than or equal to 100.");
   //   return;
   // }
 
-  data.recipientEmails = receivedValue;
+  receivedValue.toCharArray(data.recipientMobiles, receivedValue.length()+1);
   saveData();
   server.send(200, "text/plain", "Data was saved Successfully.");
 }
@@ -93,7 +92,7 @@ void setup() {
 
   if(data.marker != DEFAULT_MARKER) {
     data.marker = DEFAULT_MARKER;
-    data.recipientEmails = DEFAULT_RECIPIENT_EMAILS;
+    DEFAULT_MOBILES.toCharArray(data.recipientMobiles, DEFAULT_MOBILES.length()+1);
     saveData();
   }
 
@@ -166,6 +165,9 @@ void setup() {
   server.onNotFound(handleNotFound);
 
   server.begin();
+
+  pinMode(DATA_PIN, INPUT);
+  lastTime = millis();
 }
 
 void loop() {
@@ -173,32 +175,26 @@ void loop() {
   server.handleClient();
   MDNS.update();
 
-  int voltage = analogRead(A0);
-  long currentTime = millis();
-  if(previousTime == -1 || currentTime - previousTime > 1) {
-    int voltage2 = analogRead(A0);
-    if(highestDifference < (voltage2 - voltage)) {
-      highestDifference = voltage2 - voltage;
-    }
-    voltage = voltage2;
-    previousTime = currentTime;
-    counter++;
+  if(digitalRead(DATA_PIN) == 0) {
+    wasValue0 = true;
   }
 
-  if(counter >=30) {
-    if(!isPowerGone && highestDifference < 6) {
-      Serial.print("Power Gone ");
-      sendSMS(true);
-      isPowerGone = true;
+  long currentTime = millis();
+  if(currentTime - lastTime > 30) {
+    if(isPowerGone && wasValue0) {
+      isPowerGone = false;
+      Serial.print("Power Returned ");
+      sendSMS(false);
     }
     
-    if(isPowerGone && highestDifference >= 5){
-      isPowerGone = false;
-      sendSMS(false);
-      Serial.print("Power Returned ");
+    if(!isPowerGone && !wasValue0){
+      isPowerGone = true;
+      Serial.print("Power Gone ");
+      sendSMS(true);
     }
-    highestDifference = -1;
-    counter = 0;
+
+    wasValue0 = false;
+    lastTime = currentTime;
   }
 }
 
@@ -211,11 +207,11 @@ void sendSMS(bool isPowerGone) {
   http.addHeader("Authorization", SMS_API_KEY);
 
   String postData = String("{\n")
-                    + String("\"mobiles\": \"919880506766\",\n")
+                    + String("\"mobiles\": \"") + data.recipientMobiles + String("\",\n")
                     + String("\"var1\": \"Power\",\n")
                     + String("\"var2\": \"" +  (isPowerGone ? String("Gone\"\n") : String("Came Back\"\n")))
                     + String("}");
-  //Serial.print(postData);
+  Serial.print(postData);
 
   int httpCode = http.POST(postData); // Send the POST request with the data
 
