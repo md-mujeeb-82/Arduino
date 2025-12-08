@@ -65,8 +65,8 @@ void handleSubmit() {
   saveData();
 
   if(data.frequency == 0) {
-    digitalWrite(PIN_1, LOW);
-    digitalWrite(PIN_2, HIGH);
+    digitalWrite(PIN_1, HIGH);
+    digitalWrite(PIN_2, LOW);
   }
   server.send(200, "text/plain", "Frequency " + receivedValue + " saved Successfully.");
 }
@@ -179,8 +179,8 @@ void setup() {
   server.begin();
 
   // Initial setup
-  digitalWrite(PIN_1, LOW);
-  digitalWrite(PIN_2, HIGH);
+  digitalWrite(PIN_1, HIGH);
+  digitalWrite(PIN_2, LOW);
 
   lastTime = micros();
 }
