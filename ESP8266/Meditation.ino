@@ -56,13 +56,18 @@ void handleRoot() {
 void handleSubmit() {
   String receivedValue = server.arg("frequency");
   float freq = receivedValue.toFloat();
-  if(freq <= 0 || freq > 5000) {
-    server.send(200, "text/plain", "Frequency " + receivedValue + " is Invalid. Please enter a value greater than 0 and less than or equal to 100.");
+  if(freq < 0 || freq > 5000) {
+    server.send(200, "text/plain", "Frequency " + receivedValue + " is Invalid. Please enter a value from 0 to 5000.");
     return;
   }
 
   data.frequency = freq;
   saveData();
+
+  if(data.frequency == 0) {
+    digitalWrite(PIN_1, LOW);
+    digitalWrite(PIN_2, HIGH);
+  }
   server.send(200, "text/plain", "Frequency " + receivedValue + " saved Successfully.");
 }
 
@@ -98,11 +103,13 @@ void setup() {
     saveData();
   }
 
-  halfCycleDelay = ((1/data.frequency) * 1000 * 1000)/2;
-
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(PIN_1, OUTPUT);
   pinMode(PIN_2, OUTPUT);
+
+  if(data.frequency != 0) {
+    halfCycleDelay = ((1/data.frequency) * 1000 * 1000)/2;
+  }
 
   // AP Mode
   WiFi.softAP(STASSID, STAPSK);
@@ -183,6 +190,10 @@ void loop() {
   ArduinoOTA.handle();
   server.handleClient();
   MDNS.update();
+
+  if(data.frequency == 0) {
+    return;
+  }
 
   long currentTime = micros();
 
