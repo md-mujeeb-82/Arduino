@@ -1,23 +1,40 @@
 #include <EEPROM.h>
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <WiFiUdp.h>
 #include <ESP8266WebServer.h>
 #include <ArduinoOTA.h>
 
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 32 // OLED display height, in pixels
+
 #ifndef STASSID
 #define STASSID "Meditation"
 #define STAPSK "a1b2c3d4e5"
 #endif
 
+#define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
+#define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
 ESP8266WebServer server(80);
 
 #define DEFAULT_MARKER 7867
 #define DEFAULT_FREQUENCY 13.0
+#define BLINK_DELAY 100000
 long lastTime = -1;
 bool isPolirityForward = true;
 long halfCycleDelay = ((1/DEFAULT_FREQUENCY) * 1000 * 1000)/2;
+bool isPowerAC = true;
+bool blink = true;
+long lastTimeBlink;
 
+int PIN_SDA = 0;
+int PIN_SCL = 1;
 int PIN_1 = 2;
 int PIN_2 = 3;
 
@@ -63,6 +80,8 @@ void handleSubmit() {
 
   data.frequency = freq;
   saveData();
+  
+  updateDisplay();
 
   if(data.frequency == 0) {
     digitalWrite(PIN_1, HIGH);
@@ -87,9 +106,80 @@ void handleNotFound() {
 void saveData() {
   if(data.frequency != 0) {
     halfCycleDelay = ((1/data.frequency) * 1000 * 1000)/2;
+    isPowerAC = true;
+  } else {
+    isPowerAC = false;
   }
   EEPROM.put(0, data);
   EEPROM.commit();
+}
+
+void updateDisplay() {
+  display.clearDisplay();
+
+  // Not all the characters will fit on the display. This is normal.
+  // Library will draw what it can and the rest will be clipped.
+  display.setCursor(36, 0);     // Start at top-left corner
+  display.write("MEDITATION");
+
+  display.setCursor(0, 10);
+  if(isPowerAC) {
+    display.write("TYPE: AC");
+  } else {
+    display.write("TYPE: DC");
+  }
+
+  display.setCursor(0, 22);     // Start at top-left corner
+  char buffer[14];
+
+  if(isPowerAC) {
+    String str = "FREQ: " + String(data.frequency, 0) + " Hz";
+    str.toCharArray(buffer, 14);
+  } else {
+    String str = "VOLTAGE: 9 V";
+    str.toCharArray(buffer, 14);
+  }
+  display.write(buffer);
+
+  display.display();
+}
+
+void animatePower() {
+  display.setCursor(55, 10);
+  display.setTextColor(SSD1306_BLACK);
+ 
+  if(isPowerAC) {
+    if(blink) {
+      display.write("\\/\\/");
+      display.setCursor(55, 10);
+      display.setTextColor(SSD1306_WHITE);
+      display.write("/\\/\\");
+      blink = false;
+    } else {
+      display.write("/\\/\\");
+      display.setCursor(55, 10);
+      display.setTextColor(SSD1306_WHITE);
+      display.write("\\/\\/");
+      blink = true;
+    }
+  } else {
+    if(blink) {
+      display.write("- -");
+      display.setCursor(55, 10);
+      display.setTextColor(SSD1306_WHITE);
+      display.write(" - -");
+      blink = false;
+    } else {
+      display.write(" - -");
+      display.setCursor(55, 10);
+      display.setTextColor(SSD1306_WHITE);
+      display.write("- -");
+      blink = false;
+      blink = true;
+    }
+  }
+
+  display.display();
 }
 
 // the setup function runs once when you press reset or power the board
@@ -105,13 +195,25 @@ void setup() {
     saveData();
   }
 
+  if(data.frequency != 0) {
+    halfCycleDelay = ((1/data.frequency) * 1000 * 1000)/2;
+    isPowerAC = true;
+  } else {
+    isPowerAC = false;
+  }
+
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(PIN_1, OUTPUT);
   pinMode(PIN_2, OUTPUT);
 
-  if(data.frequency != 0) {
-    halfCycleDelay = ((1/data.frequency) * 1000 * 1000)/2;
-  }
+  Wire.begin(PIN_SDA, PIN_SCL);
+  display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
+  
+  display.setTextSize(1);      // Normal 1:1 pixel scale
+  display.setTextColor(SSD1306_WHITE); // Draw white text
+  display.cp437(true);         // Use full 256 char 'Code Page 437' font
+
+  updateDisplay();
 
   // AP Mode
   WiFi.softAP(STASSID, STAPSK);
@@ -184,7 +286,7 @@ void setup() {
   digitalWrite(PIN_1, HIGH);
   digitalWrite(PIN_2, LOW);
 
-  lastTime = micros();
+  lastTime = lastTimeBlink = micros();
 }
 
 // the loop function runs over and over again forever
@@ -193,11 +295,16 @@ void loop() {
   server.handleClient();
   MDNS.update();
 
-  if(data.frequency == 0) {
-    return;
+  long currentTime = micros();
+
+  if(currentTime - lastTimeBlink > BLINK_DELAY) {
+    animatePower();
+    lastTimeBlink = currentTime;
   }
 
-  long currentTime = micros();
+  if(!isPowerAC) {
+    return;
+  }
 
   if(currentTime - lastTime >= halfCycleDelay) {
 
