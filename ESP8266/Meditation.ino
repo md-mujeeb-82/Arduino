@@ -85,7 +85,9 @@ void handleNotFound() {
 }
 
 void saveData() {
-  halfCycleDelay = ((1/data.frequency) * 1000 * 1000)/2;
+  if(data.frequency != 0) {
+    halfCycleDelay = ((1/data.frequency) * 1000 * 1000)/2;
+  }
   EEPROM.put(0, data);
   EEPROM.commit();
 }
