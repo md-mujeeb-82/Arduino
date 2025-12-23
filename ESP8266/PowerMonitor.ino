@@ -8,10 +8,9 @@
 #include <WiFiClientSecure.h>
 #include <ArduinoOTA.h>
 
-#define DEFAULT_MARKER 78670
-#define DEFAULT_MOBILES String("919880506766")
-#define SMS_API_KEY "V4cDXFYmKEdE"
-// #define "marghoob.hasan@gmail.com"
+#define DEFAULT_MARKER 7869
+#define DEFAULT_MOBILES String("91xxxxxxxxxx")
+#define SMS_API_KEY "xxxxxxxxxxxx"
 #define DATA_PIN 2
 
 ESP8266WebServer server(80);
@@ -24,8 +23,8 @@ struct Data {
 
 Data data;
 
-#define WIFI_SSID "Ahmads"
-#define WIFI_PASSWORD "03312018"
+#define WIFI_SSID "xxxxxx"
+#define WIFI_PASSWORD "xxxxxxxx"
 
 bool isPowerGone = false;
 bool wasValue0 = false;
