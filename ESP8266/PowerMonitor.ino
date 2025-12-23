@@ -11,7 +11,7 @@
 #define DEFAULT_MARKER 7869
 #define DEFAULT_MOBILES String("91xxxxxxxxxx")
 #define SMS_API_KEY "xxxxxxxxxxxx"
-#define DATA_PIN 2
+#define DATA_PIN 3
 
 ESP8266WebServer server(80);
 
@@ -95,23 +95,23 @@ void setup() {
     saveData();
   }
 
-  Serial.begin(115200);
+  //Serial.begin(115200);
 
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   WiFi.setAutoConnect(true);
   WiFi.setSleep(false);
-  Serial.print("Connecting to Wi-Fi");
+  //Serial.print("Connecting to Wi-Fi");
 
   while (WiFi.status() != WL_CONNECTED)
   {
-    Serial.print(".");
+    //Serial.print(".");
     delay(300);
   }
 
-  Serial.println();
-  Serial.print("Connected with IP: ");
-  Serial.println(WiFi.localIP());
-  Serial.println();
+  //Serial.println();
+  //Serial.print("Connected with IP: ");
+  //Serial.println(WiFi.localIP());
+  //Serial.println();
 
   // Hostname defaults to esp8266-[ChipID]
   ArduinoOTA.setHostname("Power Monitor");
@@ -182,13 +182,13 @@ void loop() {
   if(currentTime - lastTime > 30) {
     if(isPowerGone && wasValue0) {
       isPowerGone = false;
-      Serial.print("Power Returned ");
+      //Serial.print("Power Returned ");
       sendSMS(false);
     }
     
     if(!isPowerGone && !wasValue0){
       isPowerGone = true;
-      Serial.print("Power Gone ");
+      //Serial.print("Power Gone ");
       sendSMS(true);
     }
 
@@ -210,18 +210,18 @@ void sendSMS(bool isPowerGone) {
                     + String("\"var1\": \"Power\",\n")
                     + String("\"var2\": \"" +  (isPowerGone ? String("Gone\"\n") : String("Came Back\"\n")))
                     + String("}");
-  Serial.print(postData);
+  //Serial.print(postData);
 
   int httpCode = http.POST(postData); // Send the POST request with the data
 
   if (httpCode > 0) { // Check for successful request
-    Serial.printf("[HTTP] POST... code: %d\n", httpCode);
+    //Serial.printf("[HTTP] POST... code: %d\n", httpCode);
     if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
       String payload = http.getString(); // Get the response from the server
       Serial.println(payload);
     }
   } else {
-    Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
+    //Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
   }
   http.end(); // Close the connection
 }
