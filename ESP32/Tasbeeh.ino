@@ -74,10 +74,10 @@ void handleRoot() {
           <br/><br/>
           <form action="/submit" method="GET">
             Target Count : <input type="text" name="target" value="%target%"><br/><br/>
-            Zikr Step Duration : <input type="text" name="duration" value="%duration%"><br/><br/><br/>
+            Zikr Step Duration (In Milliseconds): <input type="text" name="duration" value="%duration%"><br/><br/><br/>
             Enable Auto Pilot : <input type="checkbox" id="autoPilot" name="autoPilot" value="True" %autoPilotValue%><br>
             Enable Buzzer : <input type="checkbox" id="buzzer" name="buzzer" value="True" %buzzerValue%><br>
-            Enable Vibrator : <input type="checkbox" id="vibrator" name="vibrator" value="True" %vibratorValue%><br>
+            <!-- Enable Vibrator : <input type="checkbox" id="vibrator" name="vibrator" value="True" %vibratorValue%><br> -->
             <br/><br/>
             <input type="submit" value="Change">
           </form>
@@ -98,7 +98,7 @@ void handleSubmit() {
   wifiOnTime = millis();
   String receivedValue = server.arg("duration");
   long duration = atol(receivedValue.c_str());
-  if(duration < 0) {
+  if(duration <= 0) {
     server.send(200, "text/plain", "Duration " + receivedValue + " is Invalid. Please enter a value greater than 0.");
     return;
   }
@@ -106,8 +106,8 @@ void handleSubmit() {
 
   receivedValue = server.arg("target");
   long target = atol(receivedValue.c_str());
-  if(target < 0) {
-    server.send(200, "text/plain", "Target value " + receivedValue + " is Invalid. Please enter a value greater than 0.");
+  if(target <= 0 || target > 9999) {
+    server.send(200, "text/plain", "Target value " + receivedValue + " is Invalid. Please enter a value greater than 0 and less than 9999.");
     return;
   }
   data.target = target;
@@ -166,18 +166,18 @@ void updateDisplay() {
   display.write(buffer1);
 
   display.setTextSize(1);
-  display.setCursor(110,0);
+  display.setCursor(102,0);
   str = String(data.target);
   str.toCharArray(buffer2, 5);
   display.write(buffer2);
 
-  display.setCursor(110,8);
+  display.setCursor(102,8);
   display.write(data.isAutoPilot ? "EN" : "DIS");
 
-  display.setCursor(110,17);
+  display.setCursor(102,17);
   display.write(data.isBuzzer ? "ON" : "OFF");
 
-  display.setCursor(110,25);
+  display.setCursor(102,25);
   display.write(data.isVibrator ? "ON" : "OFF");
 
   display.display();
