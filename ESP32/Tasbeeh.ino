@@ -8,7 +8,7 @@
 #include <ArduinoOTA.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 32 // OLED display height, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
 #ifndef STASSID
 #define STASSID "SmartTasbeeh"
@@ -35,8 +35,7 @@ long lastTime = -1;
 long wifiOnTime = -1;
 bool isWiFiOn = false;
 bool isAutoPilotOn = false;
-char buffer1[5];
-char buffer2[5];
+char buffer[5];
 
 int PIN_BUTTON = 3;
 int PIN_SDA = 4;
@@ -159,25 +158,30 @@ void saveData() {
 void updateDisplay() {
   display.clearDisplay();
   
-  display.setTextSize(4);      // Normal 1:1 pixel scale
-  display.setCursor(0, 2);
+  display.setTextSize(5);      // Normal 1:1 pixel scale
+  display.setCursor(7, 2);
   String str = String(data.count);
-  str.toCharArray(buffer1, 5);
-  display.write(buffer1);
+  str.toCharArray(buffer, 5);
+  display.write(buffer);
 
   display.setTextSize(1);
-  display.setCursor(102,0);
+  display.setCursor(3,44);
   str = String(data.target);
-  str.toCharArray(buffer2, 5);
-  display.write(buffer2);
+  str.toCharArray(buffer, 5);
+  display.write(buffer);
 
-  display.setCursor(102,8);
-  display.write(data.isAutoPilot ? "EN" : "DIS");
+  display.setCursor(3,56);
+  str = String(data.duration);
+  str.toCharArray(buffer, 5);
+  display.write(buffer);
 
-  display.setCursor(102,17);
+  display.setCursor(41,50);
+  display.write(data.isAutoPilot ? "AUTO-ON" : "AUTO-OFF");
+
+  display.setCursor(105,44);
   display.write(data.isBuzzer ? "ON" : "OFF");
 
-  display.setCursor(102,25);
+  display.setCursor(105,56);
   display.write(data.isVibrator ? "ON" : "OFF");
 
   display.display();
