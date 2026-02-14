@@ -42,7 +42,7 @@ int PIN_BUTTON = 3;
 int PIN_SDA = 4;
 int PIN_SCL = 5;
 int BUZZER_PIN = 1;
-int VIBRATOR_PIN = 0;
+int VIBRATOR_PIN = 2;
 
 // EEPROM Operations
 struct Data {
@@ -201,6 +201,29 @@ void pulseOutputs(long millis) {
   }
 }
 
+void pulseOutputs(long millis, int times) {
+
+  for(int i=0; i<times; i++) {
+    if(data.isBuzzer) {
+      digitalWrite(BUZZER_PIN, LOW);
+    }
+    if(data.isVibrator) {
+      digitalWrite(VIBRATOR_PIN, LOW);
+    }
+    
+    delay(millis);
+
+    if(data.isBuzzer) {
+      digitalWrite(BUZZER_PIN, HIGH);
+    }
+    if(data.isVibrator) {
+      digitalWrite(VIBRATOR_PIN, HIGH);
+    }
+
+    delay(millis);
+  }
+}
+
 void turnOnAP(bool isOn) {
     if(isOn) {
       // AP Mode
@@ -305,12 +328,12 @@ void loop() {
 
     if(pressDuration > AP_TRIGGER_DURATION) {
       turnOnAP(true);
-      pulseOutputs(2000);
+      pulseOutputs(100, 5);
 
     } else if(pressDuration > COUNT_RESET_DURATION) {
       data.count = 0;
       updateDisplay();
-      pulseOutputs(1000);
+      pulseOutputs(50,6);
     } else if(data.isAutoPilot) {
         isAutoPilotOn = !isAutoPilotOn;
 
@@ -321,12 +344,15 @@ void loop() {
         saveData();
         if(data.count >= data.target) {
           pulseOutputs(1000);
-        } else {
+          isAutoPilotOn = false;
+        } else if(data.count % 100 == 0) {
+          pulseOutputs(100,3);
+        } else{
           pulseOutputs(100);
         }
-        
       } else {
         pulseOutputs(1000);
+        isAutoPilotOn = false;
       }
     }
   }
@@ -338,8 +364,13 @@ void loop() {
     saveData();
     if(data.count >= data.target) {
       pulseOutputs(1000);
+      isAutoPilotOn = false;
     } else {
-      pulseOutputs(100);
+      if(data.count % 100 == 0) {
+        pulseOutputs(100,3);
+      } else{
+        pulseOutputs(100);
+      }
     }
     lastTime = currentTime;
   }
