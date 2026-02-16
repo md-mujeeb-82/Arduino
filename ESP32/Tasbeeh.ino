@@ -76,7 +76,7 @@ void handleRoot() {
             Zikr Step Duration (In Milliseconds): <input type="text" name="duration" value="%duration%"><br/><br/><br/>
             Enable Auto Pilot : <input type="checkbox" id="autoPilot" name="autoPilot" value="True" %autoPilotValue%><br>
             Enable Buzzer : <input type="checkbox" id="buzzer" name="buzzer" value="True" %buzzerValue%><br>
-            <!-- Enable Vibrator : <input type="checkbox" id="vibrator" name="vibrator" value="True" %vibratorValue%><br> -->
+            Enable Vibrator : <input type="checkbox" id="vibrator" name="vibrator" value="True" %vibratorValue%><br>
             <br/><br/>
             <input type="submit" value="Change">
           </form>
@@ -192,7 +192,7 @@ void pulseOutputs(long millis) {
     digitalWrite(BUZZER_PIN, LOW);
   }
   if(data.isVibrator) {
-    digitalWrite(VIBRATOR_PIN, LOW);
+    digitalWrite(VIBRATOR_PIN, HIGH);
   }
   
   delay(millis);
@@ -201,7 +201,7 @@ void pulseOutputs(long millis) {
     digitalWrite(BUZZER_PIN, HIGH);
   }
   if(data.isVibrator) {
-    digitalWrite(VIBRATOR_PIN, HIGH);
+    digitalWrite(VIBRATOR_PIN, LOW);
   }
 }
 
@@ -212,7 +212,7 @@ void pulseOutputs(long millis, int times) {
       digitalWrite(BUZZER_PIN, LOW);
     }
     if(data.isVibrator) {
-      digitalWrite(VIBRATOR_PIN, LOW);
+      digitalWrite(VIBRATOR_PIN, HIGH);
     }
     
     delay(millis);
@@ -221,7 +221,7 @@ void pulseOutputs(long millis, int times) {
       digitalWrite(BUZZER_PIN, HIGH);
     }
     if(data.isVibrator) {
-      digitalWrite(VIBRATOR_PIN, HIGH);
+      digitalWrite(VIBRATOR_PIN, LOW);
     }
 
     delay(millis);
@@ -306,7 +306,7 @@ void setup() {
 
   // Default States
   digitalWrite(BUZZER_PIN, HIGH);
-  digitalWrite(VIBRATOR_PIN, HIGH);
+  digitalWrite(VIBRATOR_PIN, LOW);
 
   WiFi.mode(WIFI_OFF);
   lastTime = millis();
