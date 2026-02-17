@@ -373,16 +373,18 @@ void loop() {
 
     } else if(pressDuration > COUNT_RESET_DURATION) {
       data.count = 0;
+      saveData();
       updateDisplay();
       pulseOutputs(50,6);
+      isAutoPilotOn = false;
     } else if(data.isAutoPilot) {
         isAutoPilotOn = !isAutoPilotOn;
 
     } else {
       if(data.count < data.target) {
         data.count++;
-        updateDisplay();
         saveData();
+        updateDisplay();
         if(data.count >= data.target) {
           pulseOutputs(1000);
           isAutoPilotOn = false;
@@ -401,8 +403,8 @@ void loop() {
   long currentTime = millis();
   if(data.isAutoPilot && isAutoPilotOn && data.count < data.target && currentTime - lastTime > data.duration) {
     data.count++;
-    updateDisplay();
     saveData();
+    updateDisplay();
     if(data.count >= data.target) {
       pulseOutputs(1000);
       isAutoPilotOn = false;
