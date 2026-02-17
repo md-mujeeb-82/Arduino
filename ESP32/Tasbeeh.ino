@@ -21,6 +21,17 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 WebServer server(80);
 
+int LED_BRIGHTNESS_OFF   = 255;
+int LED_BRIGHTNESS_A     = 213;
+int LED_BRIGHTNESS_B     = 170;
+int LED_BRIGHTNESS_C     = 128;
+int LED_BRIGHTNESS_D     = 85;
+int LED_BRIGHTNESS_E     = 43;
+int LED_BRIGHTNESS_F     =  0;
+int LED_BRIGHTNESS_BLINK = -1;
+
+int LED_BRIGHTNESS[8] = {LED_BRIGHTNESS_OFF, LED_BRIGHTNESS_A, LED_BRIGHTNESS_B, LED_BRIGHTNESS_C, LED_BRIGHTNESS_D, LED_BRIGHTNESS_E, LED_BRIGHTNESS_F, LED_BRIGHTNESS_BLINK};
+
 #define DEFAULT_MARKER 7867
 #define DEFAULT_DURATION 700
 #define DEFAULT_AUTO_PILOT false
@@ -31,17 +42,24 @@ WebServer server(80);
 #define COUNT_RESET_DURATION 2000
 #define AP_TRIGGER_DURATION 4000
 #define AP_TIMEOUT 120000 // 2 minutes
+#define LED_BLINK_FREQUENCY 500  // Milliseconds
 long lastTime = -1;
 long wifiOnTime = -1;
 bool isWiFiOn = false;
 bool isAutoPilotOn = false;
+int currentBrightnessIndex = 0;
+int currentLEDBrightness = LED_BRIGHTNESS[currentBrightnessIndex];
+long lastTimeLEDBlink = -1;
+bool isLEDBlink = false;
 char buffer[5];
 
 int PIN_BUTTON = 3;
+int PIN_BUTTON_LED = 13;
 int PIN_SDA = 4;
 int PIN_SCL = 5;
-int BUZZER_PIN = 1;
-int VIBRATOR_PIN = 2;
+int PIN_BUZZER = 1;
+int PIN_VIBRATOR = 2;
+int PIN_LED = 12;
 
 // EEPROM Operations
 struct Data {
@@ -175,33 +193,43 @@ void updateDisplay() {
   str.toCharArray(buffer, 5);
   display.write(buffer);
 
-  display.setCursor(41,50);
-  display.write(data.isAutoPilot ? "AUTO-ON" : "AUTO-OFF");
+  display.setCursor(34,44);
+  display.write(data.isAutoPilot ? "AUTO:ON" : "AUTO:OFF");
 
-  display.setCursor(105,44);
-  display.write(data.isBuzzer ? "ON" : "OFF");
+  display.setCursor(34,56);
+  display.write(isWiFiOn ? "WiFi:ON" : "WiFi:OFF");
 
-  display.setCursor(105,56);
-  display.write(data.isVibrator ? "ON" : "OFF");
+  display.setCursor(91,44);
+  display.write(data.isBuzzer ? "Bz:ON" : "Bz:OFF");
+
+  display.setCursor(91,56);
+  display.write(data.isVibrator ? "Vb:ON" : "Vb:OFF");
 
   display.display();
 }
 
+void updateLEDBrightness() {
+
+  if(currentLEDBrightness != LED_BRIGHTNESS_BLINK) {
+    analogWrite(PIN_LED, currentLEDBrightness);
+  }
+}
+
 void pulseOutputs(long millis) {
   if(data.isBuzzer) {
-    digitalWrite(BUZZER_PIN, LOW);
+    digitalWrite(PIN_BUZZER, LOW);
   }
   if(data.isVibrator) {
-    digitalWrite(VIBRATOR_PIN, HIGH);
+    digitalWrite(PIN_VIBRATOR, HIGH);
   }
   
   delay(millis);
 
   if(data.isBuzzer) {
-    digitalWrite(BUZZER_PIN, HIGH);
+    digitalWrite(PIN_BUZZER, HIGH);
   }
   if(data.isVibrator) {
-    digitalWrite(VIBRATOR_PIN, LOW);
+    digitalWrite(PIN_VIBRATOR, LOW);
   }
 }
 
@@ -209,19 +237,19 @@ void pulseOutputs(long millis, int times) {
 
   for(int i=0; i<times; i++) {
     if(data.isBuzzer) {
-      digitalWrite(BUZZER_PIN, LOW);
+      digitalWrite(PIN_BUZZER, LOW);
     }
     if(data.isVibrator) {
-      digitalWrite(VIBRATOR_PIN, HIGH);
+      digitalWrite(PIN_VIBRATOR, HIGH);
     }
     
     delay(millis);
 
     if(data.isBuzzer) {
-      digitalWrite(BUZZER_PIN, HIGH);
+      digitalWrite(PIN_BUZZER, HIGH);
     }
     if(data.isVibrator) {
-      digitalWrite(VIBRATOR_PIN, LOW);
+      digitalWrite(PIN_VIBRATOR, LOW);
     }
 
     delay(millis);
@@ -272,6 +300,7 @@ void turnOnAP(bool isOn) {
       WiFi.mode(WIFI_OFF);
       isWiFiOn = false;
     }
+    updateDisplay();
 }
 
 // the setup function runs once when you press reset or power the board
@@ -293,8 +322,10 @@ void setup() {
 
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(PIN_BUTTON, INPUT_PULLUP);
-  pinMode(BUZZER_PIN, OUTPUT);
-  pinMode(VIBRATOR_PIN, OUTPUT);
+  pinMode(PIN_BUTTON_LED, INPUT_PULLUP);
+  pinMode(PIN_BUZZER, OUTPUT);
+  pinMode(PIN_VIBRATOR, OUTPUT);
+  pinMode(PIN_LED, OUTPUT);
 
   Wire.begin(PIN_SDA, PIN_SCL);
   display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
@@ -305,8 +336,10 @@ void setup() {
   updateDisplay();
 
   // Default States
-  digitalWrite(BUZZER_PIN, HIGH);
-  digitalWrite(VIBRATOR_PIN, LOW);
+  digitalWrite(PIN_BUZZER, HIGH);
+  digitalWrite(PIN_VIBRATOR, LOW);
+  digitalWrite(PIN_LED, HIGH);
+  updateLEDBrightness();
 
   WiFi.mode(WIFI_OFF);
   lastTime = millis();
@@ -319,6 +352,7 @@ void loop() {
     server.handleClient();
   }
 
+  // Sense the Main Tasbeeh Button
   if(digitalRead(PIN_BUTTON) == LOW) {
 
     long pressTime = millis();
@@ -327,6 +361,9 @@ void loop() {
     while(digitalRead(PIN_BUTTON) == LOW) {
       // Do Nothing
     }
+
+    // To avoid continuous Trigger
+    delay(100);
 
     long pressDuration = millis() - pressTime;
 
@@ -377,6 +414,32 @@ void loop() {
       }
     }
     lastTime = currentTime;
+  }
+
+  // Sense the LED Button
+  if(digitalRead(PIN_BUTTON_LED) == LOW) {
+
+    // While is button is pressed
+    while(digitalRead(PIN_BUTTON) == LOW) {
+      // Do Nothing
+    }
+
+    // To avoid continuous Trigger
+    delay(200);
+
+    currentBrightnessIndex++;
+    if(currentBrightnessIndex >= (sizeof(LED_BRIGHTNESS) / sizeof(LED_BRIGHTNESS[0]))) {
+      currentBrightnessIndex = 0;
+    }
+    currentLEDBrightness = LED_BRIGHTNESS[currentBrightnessIndex];
+    updateLEDBrightness();
+  }
+
+  // If Blink mode is On, then Blink the LED
+  if(currentLEDBrightness == LED_BRIGHTNESS_BLINK && currentTime - lastTimeLEDBlink > LED_BLINK_FREQUENCY) {
+    lastTimeLEDBlink = currentTime;
+    analogWrite(PIN_LED, isLEDBlink ? 0 : 255);
+    isLEDBlink = !isLEDBlink;
   }
 
   if(isWiFiOn && currentTime - wifiOnTime > AP_TIMEOUT) {
