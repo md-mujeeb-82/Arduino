@@ -194,16 +194,16 @@ void updateDisplay() {
   display.write(buffer);
 
   display.setCursor(34,44);
-  display.write(data.isAutoPilot ? "AUTO:ON" : "AUTO:OFF");
+  display.write(data.isAutoPilot ? "Auto:ON" : "Auto:OFF");
 
   display.setCursor(34,56);
   display.write(isWiFiOn ? "WiFi:ON" : "WiFi:OFF");
 
-  display.setCursor(91,44);
-  display.write(data.isBuzzer ? "Bz:ON" : "Bz:OFF");
+  display.setCursor(86,44);
+  display.write(data.isBuzzer ? "Bzr:ON" : "Bzr:OFF");
 
-  display.setCursor(91,56);
-  display.write(data.isVibrator ? "Vb:ON" : "Vb:OFF");
+  display.setCursor(86,56);
+  display.write(data.isVibrator ? "Vbr:ON" : "Vbr:OFF");
 
   display.display();
 }
