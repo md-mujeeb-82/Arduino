@@ -132,12 +132,12 @@ void updateDisplay() {
     display.setCursor(0, 30);
     display.write("CURRENT TYPE: AC");
     display.setCursor(0, 42);
-    display.write("VOLTAGE: 14.03 V");
+    display.write("VOLTAGE: 10.88 V");
   } else {
     display.setCursor(0, 30);
     display.write("CURRENT TYPE: DC");
     display.setCursor(0, 42);
-    display.write("VOLTAGE: 14.08 V");
+    display.write("VOLTAGE: 10.93 V");
   }
 
   display.setCursor(0, 54);     // Start at top-left corner
