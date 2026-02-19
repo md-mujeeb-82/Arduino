@@ -1,0 +1,475 @@
+#include <ESP8266WiFi.h>
+#include <ArduinoOTA.h>
+#include <EEPROM.h>
+#include <ESP8266WebServer.h>
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+#define AP_SSID "Tasbeeh"
+#define TIMEOUT_RESET      3000     // 5 Seconds
+#define TIMEOUT_HOTSPOT    60000    // 60 Seconds
+
+#define SCREEN_WIDTH 128            // OLED display width, in pixels
+#define SCREEN_HEIGHT 64            // OLED display height, in pixels
+
+#define OLED_RESET     -1           // Reset pin # (or -1 if sharing Arduino reset pin)
+#define SCREEN_ADDRESS 0x3C         ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
+
+#define PIN_DISPLAY 0
+#define PIN_BUTTON  2
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+ESP8266WebServer server(80);
+
+long lastTimeButtonPress = 0;
+long lastActivityTime = 0;
+bool isButtonPressed = false;
+bool isHotspotActive = false;
+bool isESPNeedsToBeRestarted = false;
+
+// The Data Structure
+struct Data {
+  int stepp = 1;
+  int count = 0;
+  int dayCount = 0;
+  int totalCount = 0;
+  int sleepTimeout = 20;
+} data;
+
+static const String FOOTER = String("<br/><br/><br/><br/><br/><br/><br/>\n")
+                           + String("<font face=\"Arial\" size=\"2\">\n")
+                           + String("<table width=\"100%\" bgcolor=\"lightgray\" style=\"color: black;\">\n")
+                           + String("  <tr><td>&nbsp;</td></tr>\n")
+                           + String("  <tr>\n")
+                           + String("    <td colspan=\"3\" align=\"center\">&#169; Copyright 2020 Alithis Technologies - All Rights Reserved</td>\n")
+                           + String("  </tr>\n")
+                           + String("  <tr><td>&nbsp;</td></tr>\n")
+                           + String("  <tr>\n")
+                           + String("    <td align=\"left\">&nbsp;<a href=\"https://alithistech.com\">Alithis Technologies</a></td>\n")
+                           + String("    <td align=\"center\"><a href=\"mailto:getitdone@alithistech.com\">getitdone@alithistech.com</a></td>\n")
+                           + String("    <td align=\"right\"><a href=\"tel:+919880506766\">+91-9880506766</a>&nbsp;</td>\n")
+                           + String("  <tr>\n")
+                           + String("  <tr><td>&nbsp;</td></tr>\n")
+                           + String("</table>\n")
+                           + String("</font>\n");
+
+const unsigned char bannerImage [] PROGMEM = {
+// 'Arduino', 128x64px
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1f, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3f, 0xff, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7f, 0xfd, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0xff, 0xff, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0xfd, 0xff, 0xb0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0xfb, 0xdf, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x36, 0xb3, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0e, 0x20, 0x21, 0x1e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x24, 0x00, 0x00, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3c, 0x80, 0x40, 0x07, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x70, 0x80, 0x04, 0x07, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x39, 0x80, 0x00, 0x43, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x02, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x62, 0x61, 0x11, 0x99, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xee, 0x63, 0x11, 0xdd, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x6e, 0xe8, 0x45, 0xdc, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4c, 0xec, 0xcc, 0xce, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x5d, 0xcc, 0xce, 0xee, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x19, 0xdc, 0xce, 0xe6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3b, 0x98, 0x46, 0x77, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3b, 0xbb, 0x17, 0x73, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x37, 0xbb, 0x37, 0x3b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1f, 0xff, 0xff, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1f, 0xff, 0xff, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0f, 0xff, 0xff, 0xfc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0xff, 0xff, 0xfc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0xff, 0xff, 0xf8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0xff, 0xff, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7f, 0xff, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1f, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x08, 0x80, 0x80, 0x80, 0x07, 0xf0, 0x00, 0x20, 0x00, 0x00, 0x18, 0x00, 0x01, 0x80, 0x00, 
+0x02, 0x08, 0x08, 0x80, 0x00, 0x00, 0xc0, 0x00, 0x20, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 
+0x06, 0x08, 0x08, 0x80, 0x00, 0x00, 0x80, 0x00, 0x20, 0x00, 0x00, 0x18, 0x00, 0x00, 0x00, 0x00, 
+0x07, 0x08, 0x08, 0x80, 0x00, 0x00, 0x80, 0x00, 0x20, 0x00, 0x00, 0x18, 0x00, 0x00, 0x00, 0x00, 
+0x0d, 0x08, 0x9c, 0xfc, 0x8e, 0x00, 0x87, 0x87, 0x3f, 0x1f, 0x0f, 0x18, 0xf0, 0xf9, 0x8f, 0x1c, 
+0x09, 0x88, 0x88, 0xcc, 0x98, 0x00, 0x88, 0xc8, 0x31, 0x11, 0x11, 0x99, 0x99, 0x99, 0x91, 0x90, 
+0x09, 0x88, 0x88, 0x84, 0x88, 0x00, 0x88, 0xc8, 0x31, 0x11, 0x30, 0x91, 0x09, 0x08, 0x90, 0x98, 
+0x1f, 0xc8, 0x88, 0x84, 0x86, 0x00, 0x9f, 0x18, 0x21, 0x11, 0xb0, 0x99, 0x09, 0x08, 0x9f, 0x8c, 
+0x10, 0x48, 0x88, 0x84, 0x81, 0x00, 0x88, 0x08, 0x21, 0x11, 0xb0, 0x99, 0x09, 0x08, 0x90, 0x02, 
+0x30, 0x48, 0x88, 0x84, 0x81, 0x00, 0x88, 0xc8, 0x31, 0x11, 0x19, 0x91, 0x99, 0x99, 0x99, 0x82, 
+0x20, 0x68, 0x88, 0x84, 0x8f, 0x00, 0x87, 0x87, 0x21, 0x11, 0x0f, 0x10, 0xf0, 0xf8, 0x8f, 0x1e, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x18, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf0, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+void setup()
+{
+  pinMode(PIN_DISPLAY, OUTPUT);      // Display
+  pinMode(PIN_BUTTON, INPUT);        // Button
+
+  digitalWrite(PIN_DISPLAY, LOW);    // Turn on the Display
+
+  Wire.begin(3, 1);  // GPIO-0 SDA, GPIO-2 SCL
+
+  // initialize with the I2C addr 0x3C
+  display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
+
+  EEPROM.begin(sizeof(Data));
+
+//  data.stepp = 10;
+//  data.count = 0;
+//  data.sleepTimeout = 20;
+//  data.dayCount = 0;
+//  data.totalCount = 0;
+//  storeEEPROMData();
+
+  // Restore stored data from EEPROM
+  restoreEEPROMData();
+  
+  // Invalid data, store the data for the first time
+  if(data.stepp != data.stepp) {
+    data.stepp = 1;
+    data.count = 0;
+    data.dayCount = 0;
+    data.totalCount = 0;
+    data.sleepTimeout = 20;
+    storeEEPROMData();
+  }
+
+  //Associate the handler functions to the path
+  server.on("/", handleRoot);
+  server.on("/endDay", endDay);
+  server.on("/restartDevice", restartDevice);
+  server.on("/factoryResetDevice", factoryResetDevice);
+  server.onNotFound(handleNotFound);
+
+  display.clearDisplay();
+  display.setTextColor(WHITE);
+  display.drawBitmap(0, 0, bannerImage, 128, 64, WHITE);
+  display.display();
+  delay(1000);
+
+  display.setTextColor(WHITE);
+  display.setTextWrap(false);
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setCursor(8, 0);
+  display.print("SMART");
+  display.setCursor(40, 25);
+  display.print("TASBEEH");
+
+  if(digitalRead(PIN_BUTTON) == LOW) {
+    
+    display.setTextSize(1);
+    display.setCursor(8, 50);
+    display.print("Hotspot Mode Active.");
+    display.display();
+
+    isHotspotActive = true;
+    WiFi.mode(WIFI_AP);
+    WiFi.setSleepMode(WIFI_NONE_SLEEP);
+    WiFi.softAP(AP_SSID);
+    delay(500);
+      
+    // Port defaults to 8266
+    ArduinoOTA.setPort(8266);
+  
+    // Hostname defaults to esp8266-[ChipID]0
+    ArduinoOTA.setHostname("Tasbeeh");
+  
+    ArduinoOTA.onStart([]() {
+      String type;
+      if (ArduinoOTA.getCommand() == U_FLASH) {
+        type = "sketch";
+      } else { // U_FS
+        type = "filesystem";
+      }
+    });
+  
+    ArduinoOTA.begin();
+    server.begin();
+    
+  } else {
+    display.setTextSize(1);
+    display.setCursor(0, 50);
+    display.print("By Mujeeb: 9880506766");
+    display.display();
+    delay(2000);
+
+    displayDetails();
+  }
+
+  lastActivityTime = millis();
+}
+
+void loop() {
+
+  if (isESPNeedsToBeRestarted) {
+    delay(300);
+    ESP.restart();
+  }
+
+  if(isHotspotActive && millis() - lastActivityTime > TIMEOUT_HOTSPOT) {
+    digitalWrite(PIN_DISPLAY, HIGH);
+    ESP.deepSleep(0);
+  }
+
+  if(isHotspotActive) {
+    // Handle the OTA Functionality
+    ArduinoOTA.handle();
+    server.handleClient();
+    return;
+  }
+  
+  // Virtual Pull Up
+  pinMode(PIN_BUTTON, OUTPUT);
+  digitalWrite(PIN_BUTTON, HIGH);
+  pinMode(PIN_BUTTON, INPUT);
+
+  if(digitalRead(PIN_BUTTON) == LOW && !isButtonPressed) {
+    isButtonPressed = true;
+    lastTimeButtonPress = millis();
+  }
+
+  if(digitalRead(PIN_BUTTON) == HIGH && isButtonPressed) {
+
+    if(millis() - lastTimeButtonPress < 200) {
+      return;
+    }
+    isButtonPressed = false;
+    lastActivityTime = millis();
+
+    if(millis() - lastTimeButtonPress > TIMEOUT_RESET) {
+      data.dayCount = data.dayCount + data.count;
+      data.count = 0;
+      storeEEPROMData();
+      displayDetails();
+      return;
+    }
+
+    data.count =  data.count + data.stepp;
+    storeEEPROMData();
+    displayDetails();
+  }
+
+  if(millis() - lastActivityTime > data.sleepTimeout * 1000) {
+    digitalWrite(PIN_DISPLAY, HIGH);
+    ESP.deepSleep(0);
+  }
+}
+
+void displayDetails() {
+    display.clearDisplay();
+    display.setTextSize(1);
+
+    
+    display.setCursor(0, 0);
+    display.print("TOTAL:" + (String)data.totalCount);
+
+    display.setCursor(0, 15);
+    display.print("STEP:" + (String)data.stepp);
+
+    display.setCursor(52, 15);
+    display.print("DAY:" + (String)data.dayCount);
+  
+    display.setTextSize(4.9);
+    display.setCursor(10, 31);
+    display.setTextColor(BLACK);
+    if(data.count < 10) {
+      display.print("    ");
+    } else if(data.count < 100) {
+      display.print("   ");
+    } else if(data.count < 1000) {
+      display.print("  ");
+    } else if(data.count < 10000) {
+      display.print(" ");
+    }
+    display.setTextColor(WHITE);
+    display.print(data.count);
+    display.display();
+}
+
+void handleNotFound() {
+  lastActivityTime = millis();
+  server.send(404, "text/plain", "Not found");
+  server.client().stop();
+}
+
+void handleRoot() {
+
+  lastActivityTime = millis();
+
+  String stepp = server.arg("step");
+  String sleep = server.arg("sleep");
+  String total = server.arg("total");
+  String daily = server.arg("day");
+  String count = server.arg("count");
+  if(stepp != NULL) {
+    data.stepp = stepp.toInt();
+    data.sleepTimeout = sleep.toInt();
+    data.totalCount = total.toInt();
+    data.dayCount = daily.toInt();
+    data.count = count.toInt();
+    storeEEPROMData();
+  }
+
+  String html = String("<html>\n")
+              + String("  <head>\n")
+              + String("    <title>Smart Tasbeeh</title>\n")
+              + String("    <script language='JavaScript'>\n")
+              + String("    function submitCommand(value) {\n")
+              + String("      var message;\n")
+              + String("      if(value == 1) {\n")
+              + String("        message = \"Are you sure that you want to End the Day?\";\n")
+              + String("      } else if(value == 2) {\n")
+              + String("        message = \"Are you sure that you want to Factory Reset your Device?\";\n")
+              + String("      } else if(value == 3) {\n")
+              + String("        message = \"Are you sure that you want to Restart your Device?\";\n")
+              + String("      }\n")
+              + String("      if (value == 0 || confirm(message) == true) {\n")
+              + String("        if(value == 1) {\n")
+              + String("          document.forms[0].action = \"/endDay\";\n")
+              + String("          document.forms[0].submit();\n")
+              + String("        } else if(value == 2) {\n")
+              + String("          document.forms[0].action = \"/factoryResetDevice\";\n")
+              + String("          document.forms[0].submit();\n")
+              + String("        } else if(value == 3) {\n")
+              + String("          document.forms[0].action = \"/restartDevice\";\n")
+              + String("          document.forms[0].submit();\n")
+              + String("        } else {\n")
+              + String("          document.forms[0].submit();\n")
+              + String("        }\n")
+              + String("      } else {\n")
+              + String("        return false;\n")
+              + String("      }\n")
+              + String("     }\n")
+              + String("    </script>\n")
+              + String("  </head>\n")
+              + String("  <body>\n")
+              + String("    <center>\n")
+              + String("      <br>\n")
+              + String("      <h1><font face='Arial'>Smart Tasbeeh</font></h1>\n")
+              + String("      <br>\n")
+              + String("      <form method='GET'>\n")
+              + String("        <table border='1' cellpadding='20' cellspacing='0'>\n")
+              + String("          <tr>\n")
+              + String("            <td align='center'><font face='Arial'>Single Step: <input name='step' id='step' size='3' maxlength='3' value='") + data.stepp + String("'></font></td>\n")
+              + String("            <td align='center'><font face='Arial'>Stand By Timeout (Seconds): <input name='sleep' id='sleep' size='2' maxlength='2' value='") + data.sleepTimeout + String("'></font></td>\n")
+              + String("            <td align='center'><font face='Arial'>Total Count: <input name='total' id='total' size='5' maxlength='5' value='") + data.totalCount + String("'></font></td>\n")
+              + String("            <td align='center'><font face='Arial'>Day Count: <input name='day' id='day' size='5' maxlength='5' value='") + data.dayCount + String("'></font></td>\n")
+              + String("            <td align='center'><font face='Arial'>Current Count: <input name='count' id='count' size='5' maxlength='5' value='") + data.count + String("'></font></td>\n")
+              + String("          </tr>\n")
+              + String("          <tr>\n")
+              + String("            <td colspan='2' align='center'><button onclick='return submitCommand(0)'>    Save    </button></td>\n")
+              + String("            <td colspan='3' align='center'><button onclick='return submitCommand(1)'>   End Day  </button></td>\n")
+              + String("          </tr>\n")
+              + String("        </table>\n")
+              + String("        <br><br><br>\n")
+              + String("        <table border='0' cellpadding='20' cellspacing='0'>\n")
+              + String("          <tr>\n")
+              + String("            <td align='center'><button onclick='return submitCommand(2)'>Factory Reset</button></td>\n")
+              + String("            <td align='center'><button onclick='return submitCommand(3)'>Restart</button></td>\n")
+              + String("          </tr>\n")
+              + String("        </table>\n")
+              + String("      </form>\n")
+              + String("    </center>\n")
+              + FOOTER
+              + String("  </body>\n")
+              + String("</html>\n");
+        
+  server.send(200, "text/html", html);
+  server.client().stop();
+}
+
+void endDay() {
+  server.send(200, "text/html", getMessagePageHTML("Operation Successful", "green", "Your Day has Ended Successfully. Rebooting the Device..", "/"));
+  server.client().stop();
+  data.dayCount = data.dayCount + data.count;
+  data.totalCount = data.totalCount + data.dayCount;
+  data.count = 0;
+  data.dayCount = 0;
+  storeEEPROMData();
+  isESPNeedsToBeRestarted = true;
+}
+
+void restartDevice() {
+  server.send(200, "text/html", getMessagePageHTML("Operation Successful", "green", "Rebooting the Device..", "/"));
+  server.client().stop();
+  isESPNeedsToBeRestarted = true;
+}
+
+void factoryResetDevice() {
+  server.send(200, "text/html", getMessagePageHTML("Operation Successful", "green", "Factory Reset complete, rebooting the Device..", "/"));
+  server.client().stop();
+  doFactoryResetAndRestart();
+}
+
+void doFactoryResetAndRestart() {
+   data.stepp = 1;
+   data.count = 0;
+   data.dayCount = 0;
+   data.totalCount = 0;
+   data.sleepTimeout = 20;
+   storeEEPROMData();
+   isESPNeedsToBeRestarted = true;
+}
+
+String getMessagePageHTML(String title, String textColor, String message, String backURL) {
+  lastActivityTime = millis();
+  String ptr = "<!DOCTYPE html> <html>\n";
+  ptr += "<html>";
+  ptr += "  <head>";
+  ptr += "    <title>";
+  ptr += title;
+  ptr += "    </title>";
+  ptr += "  </head>";
+  ptr += "  <body>";
+  ptr += "    <center>";
+  ptr += "      <font face=\"Arial\" color=\"";
+  ptr += textColor;
+  ptr += "\"><br>";
+  ptr += "        <h1>";
+  ptr += message;
+  ptr += ".</h1>";
+  ptr += "        <br>";
+  ptr += "        <a href=\"";
+  ptr += backURL;
+  ptr += "\">Go Back</a>";
+  ptr += "      </font>";
+  ptr += "    </center>";
+  ptr += "  </body>";
+  ptr += "</html>";
+  return ptr;
+}
+
+// Method to Store Structure data into EEPROM
+void restoreEEPROMData() {
+  EEPROM.get(0, data);
+}
+
+// Method to Restore Structure data from EEPROM
+void storeEEPROMData() {
+  EEPROM.put(0, data);
+  EEPROM.commit();
+}
