@@ -10,14 +10,12 @@ void setup() {
 
 void loop() {
   if(digitalRead(pushButton) == 0) {
-    Serial.print("TICK");
+    Serial.write(0);
     delay(200);
   }
 
   if(Serial.available()) {
-    String value = Serial.readString();
-    int val = value.toInt();
-    if(val == 0) {
+    if(Serial.read() == 0) {
       digitalWrite(vibrator, LOW);
       delay(100);
       digitalWrite(vibrator, HIGH);
