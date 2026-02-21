@@ -15,10 +15,20 @@ void loop() {
   }
 
   if(Serial.available()) {
-    if(Serial.read() == 0) {
+    int command1 = Serial.read(); // delay
+    int command2 = Serial.read(); // number of times
+
+    if(command2 <= 1) {
       digitalWrite(vibrator, LOW);
-      delay(100);
+      delay(command1);
       digitalWrite(vibrator, HIGH);
+    } else {
+      for(int i=0; i<command2; i++) {
+        digitalWrite(vibrator, LOW);
+        delay(command1);
+        digitalWrite(vibrator, HIGH);
+        delay(100);
+      }
     }
   }
 }
