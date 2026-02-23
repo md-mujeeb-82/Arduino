@@ -21,13 +21,6 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 WebServer server(80);
 
-int LED_BRIGHTNESS_OFF   = 255;
-int LED_BRIGHTNESS_A     = 213;
-int LED_BRIGHTNESS_F     =  0;
-int LED_BRIGHTNESS_BLINK = -1;
-
-int LED_BRIGHTNESS[4] = {LED_BRIGHTNESS_OFF, LED_BRIGHTNESS_A, LED_BRIGHTNESS_F, LED_BRIGHTNESS_BLINK};
-
 #define DEFAULT_MARKER 7867
 #define DEFAULT_DURATION 700
 #define DEFAULT_AUTO_PILOT false
@@ -38,24 +31,18 @@ int LED_BRIGHTNESS[4] = {LED_BRIGHTNESS_OFF, LED_BRIGHTNESS_A, LED_BRIGHTNESS_F,
 #define COUNT_RESET_DURATION 2000
 #define AP_TRIGGER_DURATION 4000
 #define AP_TIMEOUT 120000 // 2 minutes
-#define LED_BLINK_FREQUENCY 500  // Milliseconds
 long lastTime = -1;
 long wifiOnTime = -1;
 bool isWiFiOn = false;
 bool isAutoPilotOn = false;
-int currentBrightnessIndex = 0;
-int currentLEDBrightness = LED_BRIGHTNESS[currentBrightnessIndex];
-long lastTimeLEDBlink = -1;
-bool isLEDBlink = false;
 char buffer[5];
 
 int PIN_BUTTON = 3;
-int PIN_BUTTON_LED = 13;
+int PIN_BUTTON_AUTOPILOT = 13;
 int PIN_SDA = 4;
 int PIN_SCL = 5;
 int PIN_BUZZER = 1;
 int PIN_VIBRATOR = 2;
-int PIN_LED = 12;
 
 // EEPROM Operations
 struct Data {
@@ -204,13 +191,6 @@ void updateDisplay() {
   display.display();
 }
 
-void updateLEDBrightness() {
-
-  if(currentLEDBrightness != LED_BRIGHTNESS_BLINK) {
-    analogWrite(PIN_LED, currentLEDBrightness);
-  }
-}
-
 void pulseOutputs(long millis) {
   if(data.isBuzzer) {
     digitalWrite(PIN_BUZZER, LOW);
@@ -318,11 +298,10 @@ void setup() {
 
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(PIN_BUTTON, INPUT_PULLUP);
-  pinMode(PIN_BUTTON_LED, INPUT_PULLUP);
+  pinMode(PIN_BUTTON_AUTOPILOT, INPUT_PULLUP);
   pinMode(PIN_BUZZER, OUTPUT);
   pinMode(PIN_VIBRATOR, OUTPUT);
-  pinMode(PIN_LED, OUTPUT);
-
+  
   Wire.begin(PIN_SDA, PIN_SCL);
   display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
   
@@ -334,8 +313,6 @@ void setup() {
   // Default States
   digitalWrite(PIN_BUZZER, HIGH);
   digitalWrite(PIN_VIBRATOR, LOW);
-  digitalWrite(PIN_LED, HIGH);
-  updateLEDBrightness();
 
   WiFi.mode(WIFI_OFF);
   lastTime = millis();
@@ -357,9 +334,6 @@ void loop() {
     while(digitalRead(PIN_BUTTON) == LOW) {
       // Do Nothing
     }
-
-    // To avoid continuous Trigger
-    delay(200);
 
     long pressDuration = millis() - pressTime;
 
@@ -394,6 +368,9 @@ void loop() {
         isAutoPilotOn = false;
       }
     }
+
+    // To avoid continuous Trigger
+    delay(200);
   }
 
   long currentTime = millis();
@@ -415,29 +392,20 @@ void loop() {
   }
 
   // Sense the LED Button
-  if(digitalRead(PIN_BUTTON_LED) == LOW) {
+  if(digitalRead(PIN_BUTTON_AUTOPILOT) == LOW) {
 
     // While is button is pressed
-    while(digitalRead(PIN_BUTTON) == LOW) {
+    while(digitalRead(PIN_BUTTON_AUTOPILOT) == LOW) {
       // Do Nothing
     }
 
+    isAutoPilotOn = false;
+    data.isAutoPilot = !data.isAutoPilot;
+    saveData();
+    updateDisplay();
+
     // To avoid continuous Trigger
     delay(200);
-
-    currentBrightnessIndex++;
-    if(currentBrightnessIndex >= (sizeof(LED_BRIGHTNESS) / sizeof(LED_BRIGHTNESS[0]))) {
-      currentBrightnessIndex = 0;
-    }
-    currentLEDBrightness = LED_BRIGHTNESS[currentBrightnessIndex];
-    updateLEDBrightness();
-  }
-
-  // If Blink mode is On, then Blink the LED
-  if(currentLEDBrightness == LED_BRIGHTNESS_BLINK && currentTime - lastTimeLEDBlink > LED_BLINK_FREQUENCY) {
-    lastTimeLEDBlink = currentTime;
-    analogWrite(PIN_LED, isLEDBlink ? 0 : 255);
-    isLEDBlink = !isLEDBlink;
   }
 
   if(isWiFiOn && currentTime - wifiOnTime > AP_TIMEOUT) {
