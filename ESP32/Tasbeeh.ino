@@ -359,7 +359,7 @@ void loop() {
           pulseOutputs(1000);
           isAutoPilotOn = false;
         } else if(data.count % 100 == 0) {
-          pulseOutputs(10,5);
+          pulseOutputs(50,3);
         } else{
           pulseOutputs(100);
         }
@@ -383,7 +383,7 @@ void loop() {
       isAutoPilotOn = false;
     } else {
       if(data.count % 100 == 0) {
-        pulseOutputs(10,5);
+        pulseOutputs(50,3);
       } else{
         pulseOutputs(100);
       }
@@ -399,8 +399,8 @@ void loop() {
       // Do Nothing
     }
 
-    isAutoPilotOn = false;
-    data.isAutoPilot = !data.isAutoPilot;
+    data.isBuzzer = !data.isBuzzer;
+    data.isVibrator = !data.isVibrator;
     saveData();
     updateDisplay();
 
