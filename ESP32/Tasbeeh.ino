@@ -35,6 +35,7 @@ long lastTime = -1;
 long wifiOnTime = -1;
 bool isWiFiOn = false;
 bool isAutoPilotOn = false;
+bool wasAutoPilotToggled = false;
 char buffer[5];
 
 int PIN_BUTTON = 3;
@@ -335,43 +336,72 @@ void loop() {
       // Do Nothing
     }
 
-    long pressDuration = millis() - pressTime;
+    // If the other button is also pressed, toggle the AutoPilot
+    if(digitalRead(PIN_BUTTON_AUTOPILOT) == LOW) {
+        isAutoPilotOn = false;
+        data.isAutoPilot = !data.isAutoPilot;
+        saveData();
+        wasAutoPilotToggled = true;
+    }
 
-    if(pressDuration > AP_TRIGGER_DURATION) {
-      turnOnAP(true);
-      pulseOutputs(100, 5);
+    if(!wasAutoPilotToggled) {
+      long pressDuration = millis() - pressTime;
 
-    } else if(pressDuration > COUNT_RESET_DURATION) {
-      data.count = 0;
-      saveData();
-      updateDisplay();
-      pulseOutputs(50,6);
-      isAutoPilotOn = false;
-    } else if(data.isAutoPilot) {
-        isAutoPilotOn = !isAutoPilotOn;
+      if(pressDuration > AP_TRIGGER_DURATION) {
+        turnOnAP(true);
+        pulseOutputs(100, 5);
 
-    } else {
-      if(data.count < data.target) {
-        data.count++;
+      } else if(pressDuration > COUNT_RESET_DURATION) {
+        data.count = 0;
         saveData();
         updateDisplay();
-        if(data.count >= data.target) {
+        pulseOutputs(50,6);
+        isAutoPilotOn = false;
+      } else if(data.isAutoPilot) {
+          isAutoPilotOn = !isAutoPilotOn;
+
+      } else {
+        if(data.count < data.target) {
+          data.count++;
+          saveData();
+          updateDisplay();
+          if(data.count >= data.target) {
+            pulseOutputs(1000);
+            isAutoPilotOn = false;
+          } else if(data.count % 100 == 0) {
+            pulseOutputs(50,3);
+          } else{
+            pulseOutputs(100);
+          }
+        } else {
           pulseOutputs(1000);
           isAutoPilotOn = false;
-        } else if(data.count % 100 == 0) {
-          pulseOutputs(50,3);
-        } else{
-          pulseOutputs(100);
         }
-      } else {
-        pulseOutputs(1000);
-        isAutoPilotOn = false;
       }
     }
 
     // To avoid continuous Trigger
     delay(200);
   }
+
+  // Sense the LED Button
+  if(!wasAutoPilotToggled && digitalRead(PIN_BUTTON_AUTOPILOT) == LOW) {
+
+    // While is button is pressed
+    while(digitalRead(PIN_BUTTON_AUTOPILOT) == LOW) {
+      // Do Nothing
+    }
+
+    data.isBuzzer = !data.isBuzzer;
+    data.isVibrator = !data.isVibrator;
+    saveData();
+    updateDisplay();
+
+    // To avoid continuous Trigger
+    delay(200);
+  }
+
+  wasAutoPilotToggled = false;
 
   long currentTime = millis();
   if(data.isAutoPilot && isAutoPilotOn && data.count < data.target && currentTime - lastTime > data.duration) {
@@ -389,23 +419,6 @@ void loop() {
       }
     }
     lastTime = currentTime;
-  }
-
-  // Sense the LED Button
-  if(digitalRead(PIN_BUTTON_AUTOPILOT) == LOW) {
-
-    // While is button is pressed
-    while(digitalRead(PIN_BUTTON_AUTOPILOT) == LOW) {
-      // Do Nothing
-    }
-
-    data.isBuzzer = !data.isBuzzer;
-    data.isVibrator = !data.isVibrator;
-    saveData();
-    updateDisplay();
-
-    // To avoid continuous Trigger
-    delay(200);
   }
 
   if(isWiFiOn && currentTime - wifiOnTime > AP_TIMEOUT) {
