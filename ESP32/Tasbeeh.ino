@@ -21,6 +21,13 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 WebServer server(80);
 
+int LED_BRIGHTNESS_OFF   = 255;
+int LED_BRIGHTNESS_A     = 213;
+int LED_BRIGHTNESS_F     =  0;
+int LED_BRIGHTNESS_BLINK = -1;
+
+int LED_BRIGHTNESS[4] = {LED_BRIGHTNESS_OFF, LED_BRIGHTNESS_A, LED_BRIGHTNESS_F, LED_BRIGHTNESS_BLINK};
+
 #define DEFAULT_MARKER 7867
 #define DEFAULT_DURATION 700
 #define DEFAULT_AUTO_PILOT false
@@ -31,19 +38,24 @@ WebServer server(80);
 #define COUNT_RESET_DURATION 2000
 #define AP_TRIGGER_DURATION 4000
 #define AP_TIMEOUT 120000 // 2 minutes
+#define LED_BLINK_FREQUENCY 500  // Milliseconds
 long lastTime = -1;
 long wifiOnTime = -1;
 bool isWiFiOn = false;
 bool isAutoPilotOn = false;
-bool wasAutoPilotToggled = false;
+int currentBrightnessIndex = 0;
+int currentLEDBrightness = LED_BRIGHTNESS[currentBrightnessIndex];
+long lastTimeLEDBlink = -1;
+bool isLEDBlink = false;
 char buffer[5];
 
-int PIN_BUTTON = 3;
-int PIN_BUTTON_AUTOPILOT = 13;
+int PIN_BUTTON = 13;
+int PIN_BUTTON_LED = 12;
 int PIN_SDA = 4;
 int PIN_SCL = 5;
-int PIN_BUZZER = 1;
-int PIN_VIBRATOR = 2;
+int PIN_BUZZER = 14;
+int PIN_VIBRATOR = 16;
+int PIN_LED = 2;
 
 // EEPROM Operations
 struct Data {
@@ -192,6 +204,13 @@ void updateDisplay() {
   display.display();
 }
 
+void updateLEDBrightness() {
+
+  if(currentLEDBrightness != LED_BRIGHTNESS_BLINK) {
+    analogWrite(PIN_LED, currentLEDBrightness);
+  }
+}
+
 void pulseOutputs(long millis) {
   if(data.isBuzzer) {
     digitalWrite(PIN_BUZZER, LOW);
@@ -299,10 +318,11 @@ void setup() {
 
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(PIN_BUTTON, INPUT_PULLUP);
-  pinMode(PIN_BUTTON_AUTOPILOT, INPUT_PULLUP);
+  pinMode(PIN_BUTTON_LED, INPUT_PULLUP);
   pinMode(PIN_BUZZER, OUTPUT);
   pinMode(PIN_VIBRATOR, OUTPUT);
-  
+  pinMode(PIN_LED, OUTPUT);
+
   Wire.begin(PIN_SDA, PIN_SCL);
   display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS);
   
@@ -314,6 +334,8 @@ void setup() {
   // Default States
   digitalWrite(PIN_BUZZER, HIGH);
   digitalWrite(PIN_VIBRATOR, LOW);
+  digitalWrite(PIN_LED, HIGH);
+  updateLEDBrightness();
 
   WiFi.mode(WIFI_OFF);
   lastTime = millis();
@@ -336,72 +358,43 @@ void loop() {
       // Do Nothing
     }
 
-    // If the other button is also pressed, toggle the AutoPilot
-    if(digitalRead(PIN_BUTTON_AUTOPILOT) == LOW) {
-        isAutoPilotOn = false;
-        data.isAutoPilot = !data.isAutoPilot;
-        saveData();
-        wasAutoPilotToggled = true;
-    }
+    long pressDuration = millis() - pressTime;
 
-    if(!wasAutoPilotToggled) {
-      long pressDuration = millis() - pressTime;
+    if(pressDuration > AP_TRIGGER_DURATION) {
+      turnOnAP(true);
+      pulseOutputs(100, 5);
 
-      if(pressDuration > AP_TRIGGER_DURATION) {
-        turnOnAP(true);
-        pulseOutputs(100, 5);
+    } else if(pressDuration > COUNT_RESET_DURATION) {
+      data.count = 0;
+      saveData();
+      updateDisplay();
+      pulseOutputs(50,6);
+      isAutoPilotOn = false;
+    } else if(data.isAutoPilot) {
+        isAutoPilotOn = !isAutoPilotOn;
 
-      } else if(pressDuration > COUNT_RESET_DURATION) {
-        data.count = 0;
+    } else {
+      if(data.count < data.target) {
+        data.count++;
         saveData();
         updateDisplay();
-        pulseOutputs(50,6);
-        isAutoPilotOn = false;
-      } else if(data.isAutoPilot) {
-          isAutoPilotOn = !isAutoPilotOn;
-
-      } else {
-        if(data.count < data.target) {
-          data.count++;
-          saveData();
-          updateDisplay();
-          if(data.count >= data.target) {
-            pulseOutputs(1000);
-            isAutoPilotOn = false;
-          } else if(data.count % 100 == 0) {
-            pulseOutputs(50,3);
-          } else{
-            pulseOutputs(100);
-          }
-        } else {
+        if(data.count >= data.target) {
           pulseOutputs(1000);
           isAutoPilotOn = false;
+        } else if(data.count % 100 == 0) {
+          pulseOutputs(10,5);
+        } else{
+          pulseOutputs(100);
         }
+      } else {
+        pulseOutputs(1000);
+        isAutoPilotOn = false;
       }
     }
 
     // To avoid continuous Trigger
     delay(200);
   }
-
-  // Sense the LED Button
-  if(!wasAutoPilotToggled && digitalRead(PIN_BUTTON_AUTOPILOT) == LOW) {
-
-    // While is button is pressed
-    while(digitalRead(PIN_BUTTON_AUTOPILOT) == LOW) {
-      // Do Nothing
-    }
-
-    data.isBuzzer = !data.isBuzzer;
-    data.isVibrator = !data.isVibrator;
-    saveData();
-    updateDisplay();
-
-    // To avoid continuous Trigger
-    delay(200);
-  }
-
-  wasAutoPilotToggled = false;
 
   long currentTime = millis();
   if(data.isAutoPilot && isAutoPilotOn && data.count < data.target && currentTime - lastTime > data.duration) {
@@ -413,12 +406,38 @@ void loop() {
       isAutoPilotOn = false;
     } else {
       if(data.count % 100 == 0) {
-        pulseOutputs(50,3);
+        pulseOutputs(10,5);
       } else{
         pulseOutputs(100);
       }
     }
     lastTime = currentTime;
+  }
+
+  // Sense the LED Button
+  if(digitalRead(PIN_BUTTON_LED) == LOW) {
+
+    // While is button is pressed
+    while(digitalRead(PIN_BUTTON) == LOW) {
+      // Do Nothing
+    }
+
+    currentBrightnessIndex++;
+    if(currentBrightnessIndex >= (sizeof(LED_BRIGHTNESS) / sizeof(LED_BRIGHTNESS[0]))) {
+      currentBrightnessIndex = 0;
+    }
+    currentLEDBrightness = LED_BRIGHTNESS[currentBrightnessIndex];
+    updateLEDBrightness();
+
+    // To avoid continuous Trigger
+    delay(200);
+  }
+
+  // If Blink mode is On, then Blink the LED
+  if(currentLEDBrightness == LED_BRIGHTNESS_BLINK && currentTime - lastTimeLEDBlink > LED_BLINK_FREQUENCY) {
+    lastTimeLEDBlink = currentTime;
+    analogWrite(PIN_LED, isLEDBlink ? 0 : 255);
+    isLEDBlink = !isLEDBlink;
   }
 
   if(isWiFiOn && currentTime - wifiOnTime > AP_TIMEOUT) {
