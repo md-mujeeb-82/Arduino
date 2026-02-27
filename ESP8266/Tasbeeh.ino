@@ -216,7 +216,7 @@ void pulseOutputs(long millis) {
     digitalWrite(PIN_BUZZER, LOW);
   }
   if(data.isVibrator) {
-    digitalWrite(PIN_VIBRATOR, HIGH);
+    digitalWrite(PIN_VIBRATOR, LOW);
   }
   
   delay(millis);
@@ -225,7 +225,7 @@ void pulseOutputs(long millis) {
     digitalWrite(PIN_BUZZER, HIGH);
   }
   if(data.isVibrator) {
-    digitalWrite(PIN_VIBRATOR, LOW);
+    digitalWrite(PIN_VIBRATOR, HIGH);
   }
 }
 
@@ -236,7 +236,7 @@ void pulseOutputs(long millis, int times) {
       digitalWrite(PIN_BUZZER, LOW);
     }
     if(data.isVibrator) {
-      digitalWrite(PIN_VIBRATOR, HIGH);
+      digitalWrite(PIN_VIBRATOR, LOW);
     }
     
     delay(millis);
@@ -245,7 +245,7 @@ void pulseOutputs(long millis, int times) {
       digitalWrite(PIN_BUZZER, HIGH);
     }
     if(data.isVibrator) {
-      digitalWrite(PIN_VIBRATOR, LOW);
+      digitalWrite(PIN_VIBRATOR, HIGH);
     }
 
     delay(millis);
@@ -333,7 +333,7 @@ void setup() {
 
   // Default States
   digitalWrite(PIN_BUZZER, HIGH);
-  digitalWrite(PIN_VIBRATOR, LOW);
+  digitalWrite(PIN_VIBRATOR, HIGH);
   digitalWrite(PIN_LED, HIGH);
   updateLEDBrightness();
 
