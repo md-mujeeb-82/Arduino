@@ -36,8 +36,8 @@ long wifiOnTime = -1;
 bool isWiFiOn = false;
 bool isAutoPilotOn = false;
 char buffer[5];
-long pressTime = -1;
-long pressDuration = -1;
+long pressTime = 0;
+long pressDuration = 0;
 
 int PIN_BUTTON = 32;
 int PIN_SDA = 19;
@@ -280,51 +280,6 @@ void turnOnAP(bool isOn) {
     updateDisplay();
 }
 
-// Interrupt Service Routine (ISR)
-void ARDUINO_ISR_ATTR buttonISRFalling() {
-  pressTime = millis();
-}
-
-// Interrupt Service Routine (ISR)
-void ARDUINO_ISR_ATTR buttonISRRising() {
-  pressDuration = millis() - pressTime;
-
-  if(pressDuration > AP_TRIGGER_DURATION) {
-    turnOnAP(true);
-    pulseOutputs(100, 5);
-
-  } else if(pressDuration > COUNT_RESET_DURATION) {
-    data.count = 0;
-    saveData();
-    updateDisplay();
-    pulseOutputs(50,6);
-    isAutoPilotOn = false;
-
-  } else if(data.isAutoPilot) {
-      isAutoPilotOn = !isAutoPilotOn;
-
-  } else {
-    if(data.count < data.target) {
-      data.count++;
-      saveData();
-      updateDisplay();
-      if(data.count >= data.target) {
-        pulseOutputs(1000);
-        isAutoPilotOn = false;
-      } else if(data.count % 100 == 0) {
-        pulseOutputs(10,5);
-      } else{
-        pulseOutputs(100);
-      }
-    } else {
-      pulseOutputs(1000);
-      isAutoPilotOn = false;
-    }
-  }
-
-  delay(200);
-}
-
 // the setup function runs once when you press reset or power the board
 void setup() {
   EEPROM.begin(sizeof(data));
@@ -344,9 +299,6 @@ void setup() {
 
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(PIN_BUTTON, INPUT_PULLUP);
-  attachInterrupt(PIN_BUTTON, buttonISRFalling, FALLING);
-  attachInterrupt(PIN_BUTTON, buttonISRRising, RISING);
-
   pinMode(PIN_BUZZER, OUTPUT);
   pinMode(PIN_VIBRATOR, OUTPUT);
   
@@ -371,6 +323,53 @@ void loop() {
   if(isWiFiOn) {
     ArduinoOTA.handle();
     server.handleClient();
+  }
+
+  // Sense the Main Tasbeeh Button
+  if(digitalRead(PIN_BUTTON) == LOW) {
+
+    pressTime = millis();
+
+    while(digitalRead(PIN_BUTTON) == LOW) {
+      // Do Nothing
+    }
+
+    pressDuration = millis() - pressTime;
+
+    if(pressDuration > AP_TRIGGER_DURATION) {
+      turnOnAP(true);
+      pulseOutputs(100, 5);
+
+    } else if(pressDuration > COUNT_RESET_DURATION) {
+      data.count = 0;
+      saveData();
+      updateDisplay();
+      pulseOutputs(50,6);
+      isAutoPilotOn = false;
+
+    } else if(data.isAutoPilot) {
+        isAutoPilotOn = !isAutoPilotOn;
+
+    } else {
+      if(data.count < data.target) {
+        data.count++;
+        saveData();
+        updateDisplay();
+        if(data.count >= data.target) {
+          pulseOutputs(1000);
+          isAutoPilotOn = false;
+        } else if(data.count % 100 == 0) {
+          pulseOutputs(10,5);
+        } else{
+          pulseOutputs(100);
+        }
+      } else {
+        pulseOutputs(1000);
+        isAutoPilotOn = false;
+      }
+    }
+
+    delay(200);
   }
 
   long currentTime = millis();
