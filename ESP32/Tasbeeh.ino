@@ -39,11 +39,11 @@ char buffer[5];
 long pressTime = -1;
 long pressDuration = -1;
 
-int PIN_BUTTON = 13;
-int PIN_SDA = 4;
-int PIN_SCL = 5;
-int PIN_BUZZER = 14;
-int PIN_VIBRATOR = 16;
+int PIN_BUTTON = 32;
+int PIN_SDA = 19;
+int PIN_SCL = 21;
+int PIN_BUZZER = 23;
+int PIN_VIBRATOR = 22;
 
 // EEPROM Operations
 struct Data {
@@ -299,7 +299,7 @@ void ARDUINO_ISR_ATTR buttonISRRising() {
     updateDisplay();
     pulseOutputs(50,6);
     isAutoPilotOn = false;
-    
+
   } else if(data.isAutoPilot) {
       isAutoPilotOn = !isAutoPilotOn;
 
