@@ -359,7 +359,7 @@ void loop() {
           pulseOutputs(1000);
           isAutoPilotOn = false;
         } else if(data.count % 100 == 0) {
-          pulseOutputs(10,5);
+          pulseOutputs(100,2);
         } else{
           pulseOutputs(100);
         }
@@ -382,7 +382,7 @@ void loop() {
       isAutoPilotOn = false;
     } else {
       if(data.count % 100 == 0) {
-        pulseOutputs(10,5);
+        pulseOutputs(100,2);
       } else{
         pulseOutputs(100);
       }
