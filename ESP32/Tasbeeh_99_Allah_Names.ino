@@ -7,6 +7,108 @@
 #include <WebServer.h>
 #include <ArduinoOTA.h>
 
+String Allah99Names[99] = {
+  "Ar-Rahmaan",
+  "Ar-Raheem",
+  "Al-Malik",
+  "Al-Quddoos",
+  "As-Salaam",
+  "Al-Mu'min",
+  "Al-Muhaymin",
+  "Al-'Azeez",
+  "Al-Jabbaar",
+  "Al-Mutakabbir",
+  "Al-Khaaliq",
+  "Al-Baari'",
+  "Al-Musawwir",
+  "Al-Ghaffaar",
+  "Al-Qahhaar",
+  "Al-Wahhaab",
+  "Ar-Razzaaq",
+  "Al-Fattaah",
+  "Al-Aleem",
+  "Al-Qabid",
+  "Al-Basit",
+  "Al-Khafid",
+  "Ar-Rafi'",
+  "Al-Mu'izz",
+  "Al-Mu'zill",
+  "As-Sami'",
+  "Al-Basir",
+  "Al-Hakam",
+  "Al-Adl",
+  "Al-Lateef",
+  "Al-Khabeer",
+  "Al-Haleem",
+  "Al-Azeem",
+  "Al-Ghafoor",
+  "Ash-Shakoor",
+  "Al-'Ali",
+  "Al-Kabeer",
+  "Al-Hafeez",
+  "Al-Muqeet",
+  "Al-Haseeb",
+  "Al-Jaleel",
+  "Al-Kareem",
+  "Ar-Raqeeb",
+  "Al-Mujeeb",
+  "Al-Wasi'",
+  "Al-Hakeem",
+  "Al-Wadood",
+  "Al-Majeed",
+  "Al-Ba'ith",
+  "As-Shaheed",
+  "Al-Haqq",
+  "Al-Wakeel",
+  "Al-Qawiyy",
+  "Al-Mateen",
+  "Al-Waliyy",
+  "Al-Hameed",
+  "Al-Muhsi",
+  "Al-Mubdi",
+  "Al-Mu'id",
+  "Al-Muh'yi",
+  "Al-Mumeet",
+  "Al-Hayyu",
+  "Al-Qayyum",
+  "Al-Wajid",
+  "Al-Majid",
+  "Al-Wahid",
+  "Al-Ahad",
+  "As-Samad",
+  "Al-Qadir",
+  "Al-Muqtadir",
+  "Al-Muqaddim",
+  "Al-Mu'akhkhar"
+  "Al-Awwal",
+  "Al-Akhir",
+  "Az-Zahir",
+  "Al-Batin",
+  "Al-Wali",
+  "Al-Muta'ali",
+  "Al-Barr",
+  "At-Tawwaab",
+  "Al-Muntaqim",
+  "Al-'Afuw",
+  "Ar-Ra'uf",
+  "Al Malik al-Mulk",
+  "Al Dhul-Jalal wal-Ikram",
+  "Al-Muqsit",
+  "Al-Jami'",
+  "Al-Ghani",
+  "Al-Mughni",
+  "Al-Mani'",
+  "Ad-Dharr",
+  "An-Nafi'",
+  "An-Noor",
+  "Al-Hadi",
+  "Al-Badi'",
+  "Al-Baqi",
+  "Al-Waris",
+  "Ar-Rasheed",
+  "As-Saboor"
+};
+
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
@@ -23,19 +125,22 @@ WebServer server(80);
 
 #define DEFAULT_MARKER 7867
 #define DEFAULT_DURATION 700
-#define DEFAULT_AUTO_PILOT false
-#define DEFAULT_BUZZER true
+#define DEFAULT_AUTO_PILOT true
+#define DEFAULT_BUZZER false
 #define DEFAULT_VIBRATOR true
 #define DEFAULT_COUNT 0
-#define DEFAULT_TARGET 101
+#define DEFAULT_NAME_INDEX 0
+#define DEFAULT_TARGET 25
 #define COUNT_RESET_DURATION 2000
 #define AP_TRIGGER_DURATION 4000
 #define AP_TIMEOUT 120000 // 2 minutes
+int durationMalikulMulk = DEFAULT_DURATION;
+int durationJalalIkram = DEFAULT_DURATION;
 long lastTime = -1;
 long wifiOnTime = -1;
 bool isWiFiOn = false;
 bool isAutoPilotOn = false;
-char buffer[5];
+char buffer[25];
 long pressTime = 0;
 long pressDuration = 0;
 
@@ -48,12 +153,13 @@ int PIN_VIBRATOR = 22;
 // EEPROM Operations
 struct Data {
   int marker;
-  long duration; // Millisecond
+  int duration; // Millisecond
   bool isAutoPilot;
   bool isBuzzer;
   bool isVibrator;
-  long count;
-  long target;
+  int count;
+  int target;
+  int currentNameIndex;
 };
 
 Data data;
@@ -104,6 +210,9 @@ void handleSubmit() {
     return;
   }
   data.duration = duration;
+  // Calculate other durations
+  durationMalikulMulk = data.duration * 2.142857142857143;
+  durationJalalIkram = data.duration * 2.857142857142857;
 
   receivedValue = server.arg("target");
   long target = atol(receivedValue.c_str());
@@ -160,35 +269,27 @@ void saveData() {
 void updateDisplay() {
   display.clearDisplay();
   
-  display.setTextSize(5);      // Normal 1:1 pixel scale
-  display.setCursor(7, 2);
-  String str = String(data.count);
-  str.toCharArray(buffer, 5);
-  // display.write(buffer);
-  display.write("ٱلرَّحْمَٰنُ")
+  display.setTextSize(2);      // Normal 1:1 pixel scale
+  display.setCursor(0, 0);
+  String str = String(100);
+  Allah99Names[data.currentNameIndex].toCharArray(buffer, sizeof(buffer));
+  display.write(buffer);
 
   display.setTextSize(1);
-  display.setCursor(3,44);
-  str = String(data.target);
-  str.toCharArray(buffer, 5);
-  display.write(buffer);
-
   display.setCursor(3,56);
-  str = String(data.duration);
-  str.toCharArray(buffer, 5);
+  str = String(data.currentNameIndex+1);
+  str.toCharArray(buffer, sizeof(buffer));
   display.write(buffer);
 
-  display.setCursor(34,44);
-  display.write(data.isAutoPilot ? "Auto:ON" : "Auto:OFF");
+  display.setCursor(58,56);
+  str = String(data.target);
+  str.toCharArray(buffer, sizeof(buffer));
+  display.write(buffer);
 
-  display.setCursor(34,56);
-  display.write(isWiFiOn ? "WiFi:ON" : "WiFi:OFF");
-
-  display.setCursor(86,44);
-  display.write(data.isBuzzer ? "Bzr:ON" : "Bzr:OFF");
-
-  display.setCursor(86,56);
-  display.write(data.isVibrator ? "Vbr:ON" : "Vbr:OFF");
+  display.setCursor(110,56);
+  str = String(data.count);
+  str.toCharArray(buffer, sizeof(buffer));
+  display.write(buffer);
 
   display.display();
 }
@@ -295,8 +396,13 @@ void setup() {
     data.isVibrator = DEFAULT_VIBRATOR;
     data.count = DEFAULT_COUNT;
     data.target = DEFAULT_TARGET;
+    data.currentNameIndex = DEFAULT_NAME_INDEX;
     saveData();
   }
+
+  // Calculate other durations
+  durationMalikulMulk = data.duration * 2.142857142857143;
+  durationJalalIkram = data.duration * 2.857142857142857;
 
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(PIN_BUTTON, INPUT_PULLUP);
@@ -342,6 +448,7 @@ void loop() {
       pulseOutputs(100, 5);
 
     } else if(pressDuration > COUNT_RESET_DURATION) {
+      data.currentNameIndex = 0;
       data.count = 0;
       saveData();
       updateDisplay();
@@ -350,6 +457,7 @@ void loop() {
 
     } else if(data.isAutoPilot) {
         isAutoPilotOn = !isAutoPilotOn;
+        lastTime = millis();
 
     } else {
       if(data.count < data.target) {
@@ -357,36 +465,68 @@ void loop() {
         saveData();
         updateDisplay();
         if(data.count >= data.target) {
-          pulseOutputs(1000);
-          isAutoPilotOn = false;
-        } else if(data.count % 100 == 0) {
-          pulseOutputs(100,2);
+          data.currentNameIndex++;
+          saveData();
+          if(data.currentNameIndex >= 98) {
+            pulseOutputs(1000);
+            isAutoPilotOn = false;
+          } else {
+            updateDisplay();
+            data.count = 0;
+            saveData();
+            pulseOutputs(20,5);
+            delay(1000);
+          }
+          
         } else{
           pulseOutputs(100);
         }
       } else {
-        pulseOutputs(1000);
-        isAutoPilotOn = false;
+        data.currentNameIndex++;
+        saveData();
+        if(data.currentNameIndex >= 98) {
+          pulseOutputs(1000);
+          isAutoPilotOn = false;
+        } else {
+          updateDisplay();
+          data.count = 0;
+          saveData();
+          pulseOutputs(20,5);
+          delay(1000);
+        }
       }
     }
 
     delay(200);
   }
 
+  int duration = data.duration;
+  if(data.currentNameIndex == 82) {
+    duration = durationMalikulMulk;
+  } else if(data.currentNameIndex == 83) {
+    duration = durationJalalIkram;
+  }
+
   long currentTime = millis();
-  if(data.isAutoPilot && isAutoPilotOn && data.count < data.target && currentTime - lastTime > data.duration) {
+  if(data.isAutoPilot && isAutoPilotOn && data.count < data.target && currentTime - lastTime > duration) {
     data.count++;
     saveData();
     updateDisplay();
     if(data.count >= data.target) {
-      pulseOutputs(1000);
-      isAutoPilotOn = false;
-    } else {
-      if(data.count % 100 == 0) {
-        pulseOutputs(100,2);
-      } else{
-        pulseOutputs(100);
+      data.currentNameIndex++;
+      saveData();
+      if(data.currentNameIndex >= 98) {
+        pulseOutputs(1000);
+        isAutoPilotOn = false;
+      } else {
+        updateDisplay();
+        data.count = 0;
+        saveData();
+        pulseOutputs(20,5);
+        delay(1000);
       }
+    } else {
+      pulseOutputs(100);
     }
     lastTime = currentTime;
   }
