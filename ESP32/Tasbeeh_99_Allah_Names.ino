@@ -503,9 +503,9 @@ void loop() {
   }
 
   int duration = data.duration;
-  if(data.currentNameIndex == 82) {
+  if(data.currentNameIndex == 83) {
     duration = durationMalikulMulk;
-  } else if(data.currentNameIndex == 83) {
+  } else if(data.currentNameIndex == 84) {
     duration = durationJalalIkram;
   }
 
