@@ -7,7 +7,9 @@
 #include <WebServer.h>
 #include <ArduinoOTA.h>
 
-String Allah99Names[99] = {
+#define ALLAH_NAMES_COUNT 99 
+
+String Allah99Names[ALLAH_NAMES_COUNT] = {
   "Ar-Rahmaan",
   "Ar-Raheem",
   "Al-Malik",
@@ -79,7 +81,7 @@ String Allah99Names[99] = {
   "Al-Qadir",
   "Al-Muqtadir",
   "Al-Muqaddim",
-  "Al-Mu'akhkhar"
+  "Al-Mu'akhkhar",
   "Al-Awwal",
   "Al-Akhir",
   "Az-Zahir",
@@ -402,7 +404,7 @@ void setup() {
 
   // Calculate other durations
   durationMalikulMulk = data.duration * 2.142857142857143;
-  durationJalalIkram = data.duration * 2.857142857142857;
+  durationJalalIkram = data.duration * 2.142857142857143;
 
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(PIN_BUTTON, INPUT_PULLUP);
@@ -467,7 +469,7 @@ void loop() {
         if(data.count >= data.target) {
           data.currentNameIndex++;
           saveData();
-          if(data.currentNameIndex >= 98) {
+          if(data.currentNameIndex >= ALLAH_NAMES_COUNT) {
             pulseOutputs(1000);
             isAutoPilotOn = false;
           } else {
@@ -484,7 +486,7 @@ void loop() {
       } else {
         data.currentNameIndex++;
         saveData();
-        if(data.currentNameIndex >= 98) {
+        if(data.currentNameIndex >= ALLAH_NAMES_COUNT) {
           pulseOutputs(1000);
           isAutoPilotOn = false;
         } else {
@@ -515,7 +517,7 @@ void loop() {
     if(data.count >= data.target) {
       data.currentNameIndex++;
       saveData();
-      if(data.currentNameIndex >= 98) {
+      if(data.currentNameIndex >= ALLAH_NAMES_COUNT) {
         pulseOutputs(1000);
         isAutoPilotOn = false;
       } else {
